@@ -1,0 +1,10 @@
+cat > .gitignore << 'EOF'
+node_modules/
+dist/
+.env
+data/
+*.log
+.DS_Store
+cookies/
+proxies.txt
+EOF

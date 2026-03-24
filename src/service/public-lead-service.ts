@@ -1,8 +1,7 @@
 import { CompanySeedReader } from '../crawlers/company-seed-reader';
 import { CompanyPublicEnricher } from '../enrichers/company-public-enricher';
-import { SeleniumPublicTeamScraper } from '../crawlers/selenium-public-team-scraper';
-import { filterLeadershipEmployees } from '../utils/leadership-filter';
-import { EmployeeCleaner } from '../utils/employee-cleaner';
+import { CompanyRegistryEnricher } from '../enrichers/company-registry-enricher';
+import { LegalRepresentativeMapper } from '../utils/legal-representative-mapper';
 import type { Company, Employee } from '../types';
 import { Logger } from '../utils/logger';
 
@@ -22,48 +21,39 @@ export class PublicLeadService {
       `STEP 2: tìm thấy ${seedCompanies.length} companies, xử lý ${targetCompanies.length} companies`
     );
 
-    const enricher = new CompanyPublicEnricher();
-    const enrichedCompanies = await enricher.enrichMany(targetCompanies);
+    Logger.info('STEP 3: enrich public website/linkedin info');
+    const publicEnricher = new CompanyPublicEnricher();
+    const publicEnrichedCompanies = await publicEnricher.enrichMany(targetCompanies);
 
-    Logger.info('STEP 3: scrape public leadership profiles');
-    const teamScraper = new SeleniumPublicTeamScraper();
-    await teamScraper.initialize();
+    console.log(
+      'DEBUG publicEnrichedCompanies =',
+      JSON.stringify(publicEnrichedCompanies, null, 2)
+    );
 
-    const allEmployees: Employee[] = [];
+    Logger.info('STEP 4: enrich registry info');
+    const registryEnricher = new CompanyRegistryEnricher();
+    const registryEnrichedCompanies = await registryEnricher.enrichMany(
+      publicEnrichedCompanies
+    );
 
-    try {
-      for (let i = 0; i < enrichedCompanies.length; i++) {
-        const company = enrichedCompanies[i];
+    console.log(
+      'DEBUG registryEnrichedCompanies =',
+      JSON.stringify(registryEnrichedCompanies, null, 2)
+    );
 
-        Logger.info(
-          `👥 [${i + 1}/${enrichedCompanies.length}] Scrape leadership: ${company.name}`
-        );
+    Logger.info('STEP 5: map legal representative -> employees');
+    const mapper = new LegalRepresentativeMapper();
+    const employees = mapper.mapCompaniesToEmployees(registryEnrichedCompanies);
 
-        const employees = await teamScraper.scrapeCompanyTeam(company);
+    console.log('DEBUG employees =', JSON.stringify(employees, null, 2));
 
-        Logger.info(
-          `➡️ ${company.name}: ${employees.length} public profiles found`
-        );
-
-        allEmployees.push(...employees);
-      }
-    } finally {
-      await teamScraper.close();
-    }
-
-    const cleaner = new EmployeeCleaner();
-
-    const deduped = this.deduplicateEmployees(allEmployees);
-    const leadershipOnly = filterLeadershipEmployees(deduped);
-    const finalEmployees = cleaner.clean(leadershipOnly);
-
-    Logger.info('STEP 4: hoàn tất generate');
-    Logger.info(`✅ Total companies: ${enrichedCompanies.length}`);
-    Logger.info(`✅ Total leadership profiles: ${finalEmployees.length}`);
+    Logger.info('STEP 6: hoàn tất generate');
+    Logger.info(`✅ Total companies: ${registryEnrichedCompanies.length}`);
+    Logger.info(`✅ Total representatives: ${employees.length}`);
 
     return {
-      companies: this.deduplicateCompanies(enrichedCompanies),
-      employees: finalEmployees,
+      companies: this.deduplicateCompanies(registryEnrichedCompanies),
+      employees: this.deduplicateEmployees(employees),
     };
   }
 
@@ -72,9 +62,7 @@ export class PublicLeadService {
 
     return companies.filter((company) => {
       const key = company.linkedinUrl || company.website || company.name;
-
       if (!key || seen.has(key)) return false;
-
       seen.add(key);
       return true;
     });
@@ -84,12 +72,8 @@ export class PublicLeadService {
     const seen = new Set<string>();
 
     return employees.filter((employee) => {
-      const key =
-        employee.linkedinUrl ||
-        `${employee.companyName}|${employee.name}|${employee.title || ''}`;
-
+      const key = `${employee.companyName}|${employee.name}|${employee.title || ''}`;
       if (!key || seen.has(key)) return false;
-
       seen.add(key);
       return true;
     });

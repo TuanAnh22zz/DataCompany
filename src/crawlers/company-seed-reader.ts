@@ -33,10 +33,6 @@ export class CompanySeedReader {
           const rawIndustry = row.industry || '';
           const rowIndustry = this.normalizeIndustryName(rawIndustry);
 
-          Logger.info(
-            `ROW ${totalRows}: name=${row.name}, rawIndustry=${rawIndustry}, normalized=${rowIndustry}`
-          );
-
           if (rowIndustry === normalizedIndustry) {
             companies.push({
               name: row.name || '',
@@ -44,6 +40,7 @@ export class CompanySeedReader {
               location: row.location || '',
               website: row.website || '',
               linkedinUrl: row.linkedinUrl || '',
+              registryUrl: row.registryUrl || '',
               createdAt: new Date(),
             });
           }

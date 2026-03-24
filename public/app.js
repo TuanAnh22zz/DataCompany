@@ -27,15 +27,12 @@ generateBtn?.addEventListener('click', async () => {
   console.log('industry =', industry);
 
   if (!industry) {
-    alert('Vui lòng nhập ngành');
+    showError('Vui lòng chọn ngành');
     return;
   }
 
-  loadingEl?.classList.remove('hidden');
-
-  if (summaryEl) summaryEl.innerHTML = '';
-  if (companiesTableEl) companiesTableEl.innerHTML = '';
-  if (employeesTableEl) employeesTableEl.innerHTML = '';
+  setLoading(true);
+  clearUI();
 
   try {
     console.log('📡 Calling API /api/generate-leads ...');
@@ -45,8 +42,8 @@ generateBtn?.addEventListener('click', async () => {
       headers: {
         'Content-Type': 'application/json',
       },
-      body: JSON.stringify({ industry ,
-        
+      body: JSON.stringify({
+        industry,
         limit: 5,
       }),
     });
@@ -57,7 +54,7 @@ generateBtn?.addEventListener('click', async () => {
     console.log('response data =', data);
 
     if (!data.success) {
-      alert(data.message || 'Có lỗi xảy ra');
+      showError(data.message || 'Có lỗi xảy ra');
       return;
     }
 
@@ -66,11 +63,45 @@ generateBtn?.addEventListener('click', async () => {
     renderEmployees(data.employees || []);
   } catch (error) {
     console.error('❌ fetch error:', error);
-    alert('Không gọi được API');
+    showError('Không gọi được API');
   } finally {
-    loadingEl?.classList.add('hidden');
+    setLoading(false);
   }
 });
+
+function setLoading(isLoading) {
+  if (loadingEl) {
+    loadingEl.textContent = isLoading
+      ? 'Đang xử lý dữ liệu, vui lòng chờ...'
+      : '';
+    loadingEl.classList.toggle('hidden', !isLoading);
+  }
+
+  if (generateBtn) {
+    generateBtn.disabled = isLoading;
+    generateBtn.textContent = isLoading ? 'Generating...' : 'Generate Leads';
+  }
+}
+
+function clearUI() {
+  if (summaryEl) summaryEl.innerHTML = '';
+  if (companiesTableEl) companiesTableEl.innerHTML = '';
+  if (employeesTableEl) employeesTableEl.innerHTML = '';
+}
+
+function showError(message) {
+  if (!companiesTableEl) return;
+
+  companiesTableEl.innerHTML = `
+    <div class="empty-state" style="border-color:#fecaca;background:#fef2f2;color:#b91c1c;">
+      ${escapeHtml(message)}
+    </div>
+  `;
+
+  if (employeesTableEl) {
+    employeesTableEl.innerHTML = '';
+  }
+}
 
 function renderSummary(data) {
   if (!summaryEl) return;
@@ -78,7 +109,7 @@ function renderSummary(data) {
   summaryEl.innerHTML = `
     <div class="summary-card">
       <span class="summary-label">Industry</span>
-      <div class="summary-value">${data.industry || ''}</div>
+      <div class="summary-value">${escapeHtml(data.industry || '')}</div>
     </div>
     <div class="summary-card">
       <span class="summary-label">Total Companies</span>
@@ -165,7 +196,7 @@ function renderEmployees(employees) {
 
   if (!employees.length) {
     employeesTableEl.innerHTML =
-      '<div class="empty-state">Chưa có employee public.</div>';
+      '<div class="empty-state">Chưa có legal representative.</div>';
     return;
   }
 
@@ -177,12 +208,8 @@ function renderEmployees(employees) {
         <td><strong>${escapeHtml(employee.companyName || '')}</strong></td>
         <td>${escapeHtml(employee.name || '')}</td>
         <td>${escapeHtml(employee.title || '')}</td>
+        <td class="phone-cell">${escapeHtml(employee.phone || '')}</td>
         <td>${escapeHtml(employee.location || '')}</td>
-        <td>${
-          employee.linkedinUrl
-            ? `<a href="${employee.linkedinUrl}" target="_blank" rel="noopener noreferrer">${escapeHtml(employee.linkedinUrl)}</a>`
-            : ''
-        }</td>
         <td>${
           employee.sourceUrl
             ? `<a href="${employee.sourceUrl}" target="_blank" rel="noopener noreferrer">Source</a>`
@@ -202,8 +229,8 @@ function renderEmployees(employees) {
             <th>Company</th>
             <th>Name</th>
             <th>Title</th>
+            <th>Phone</th>
             <th>Location</th>
-            <th>LinkedIn</th>
             <th>Source</th>
           </tr>
         </thead>

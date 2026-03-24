@@ -4,6 +4,7 @@ export interface Company {
   industry: string;
   website?: string;
   linkedinUrl?: string;
+  registryUrl?: string;
   location?: string;
   employeeCount?: number;
   contactEmail?: string;
@@ -11,6 +12,10 @@ export interface Company {
   address?: string;
   contactPage?: string;
   teamPage?: string;
+  taxCode?: string;
+  legalRepresentative?: string;
+  status?: string;
+  sourceUrl?: string;
   createdAt?: Date;
 }
 
@@ -20,14 +25,9 @@ export interface Employee {
   name: string;
   title?: string;
   linkedinUrl?: string;
+  email?: string;
+  phone?: string;
   location?: string;
   sourceUrl?: string;
   createdAt?: Date;
-}
-
-type CompanyCandidate = {
-  name: string;
-  website?: string;
-  industry: string;
-  location?: string;
 }
